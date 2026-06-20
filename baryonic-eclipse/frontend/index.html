@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disaster Command Interface</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <link rel="stylesheet" href="/styles.css?v=3">
+    <!-- Google Fonts for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Top Operations Navbar -->
+    <div class="top-navbar">
+        <div class="navbar-brand">
+            <span class="brand-glow">BARYONIC ECLIPSE</span>
+            <span class="brand-sub">TACTICAL OPS CENTER</span>
+        </div>
+        <div class="casualty-stats" id="casualtyStats">
+            <div class="stat-item missing">MISSING: <span id="statMissing">0</span></div>
+            <div class="stat-item rescued">RESCUED: <span id="statRescued">0</span></div>
+            <div class="stat-item fatalities">FATALITIES: <span id="statFatalities">0</span></div>
+        </div>
+        <div class="navbar-controls">
+            <div class="live-indicator-nav">
+                <div class="live-dot"></div>
+                <span>LIVE • <span id="timeSinceUpdate">00:00</span></span>
+            </div>
+            <div class="scenario-context" id="scenarioContext">
+                <div id="contextTitle">2024 Wayanad Landslide</div>
+                <div id="contextDesc">Kerala, India. Real coordinates.</div>
+            </div>
+            <div class="select-wrapper">
+                <select id="scenarioSelector" onchange="changeScenario(this.value)">
+                    <option value="wayanad">Wayanad Landslide</option>
+                    <option value="chennai">Chennai Flood</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Map Container -->
+    <div id="map"></div>
+    <canvas id="rainCanvas"></canvas>
+
+    <!-- Right Unified Control Dashboard -->
+    <div class="right-dashboard">
+        <div class="tab-headers">
+            <button class="tab-btn active" id="tab-btn-ai" onclick="switchTab('ai')">🧠 Tactical AI</button>
+            <button class="tab-btn" id="tab-btn-metrics" onclick="switchTab('metrics')">📊 Metrics</button>
+            <button class="tab-btn" id="tab-btn-controls" onclick="switchTab('controls')">⚙️ Controls</button>
+            <button class="tab-btn" id="tab-btn-audit" onclick="switchTab('audit')">📜 Audit Log</button>
+        </div>
+
+        <!-- Tab 1: Tactical AI -->
+        <div class="tab-content active" id="tab-ai">
+            <div class="ai-header-bar">
+                <span>Tactical AI Feed</span>
+                <span id="aiConfidenceBadge" class="confidence-badge">--% Conf</span>
+            </div>
+            <div class="scrollable-panel-body">
+                <div class="ai-section">
+                    <div class="ai-section-title">⚠️ Threat & Risk Assessment</div>
+                    <div id="aiRiskList" class="ai-bullet-list"></div>
+                </div>
+                
+                <div class="ai-section">
+                    <div class="ai-section-title">🚨 Identified Resource Gaps</div>
+                    <div id="aiGapsList" class="ai-gaps-container"></div>
+                </div>
+                
+                <div class="ai-section">
+                    <div class="ai-section-title">🔮 Tactical Predictions</div>
+                    <div id="aiPredictionsList" class="ai-bullet-list"></div>
+                </div>
+
+                <div class="ai-section">
+                    <div class="ai-section-title">💡 Recommended Actions</div>
+                    <div id="aiActionsList" class="ai-actions-container"></div>
+                </div>
+                
+                <div class="ai-section-explanation">
+                    <strong>Analysis Context:</strong> <span id="aiExplanationText">Awaiting intelligence feed...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Metrics -->
+        <div class="tab-content" id="tab-metrics">
+            <div class="scrollable-panel-body">
+                <div class="metric-section">
+                    <div class="metric-section-title">🏥 Hospitals & Beds</div>
+                    <div id="hospitalsMetrics">Loading metrics...</div>
+                </div>
+                <div class="metric-section">
+                    <div class="metric-section-title">🚒 Rescue Fleet</div>
+                    <div id="rescueMetrics">Loading metrics...</div>
+                </div>
+                <div class="metric-section">
+                    <div class="metric-section-title">📦 Storage & Supplies</div>
+                    <div id="storageMetrics">Loading metrics...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Controls -->
+        <div class="tab-content" id="tab-controls">
+            <div class="scrollable-panel-body">
+                <div class="side-panel-title">AI Delegation</div>
+                <button class="sim-btn" id="autoPilotBtn" style="background: rgba(168, 85, 247, 0.1); border-color: var(--accent-purple); color: var(--text-primary); text-align: center; font-weight: 700;" onclick="toggleAutoPilot()">🤖 ENABLE AI AUTO-PILOT</button>
+
+                <div class="side-panel-title" style="margin-top: 24px;">Command Actions</div>
+                <button class="sim-btn" style="background: var(--accent-amber); color: #000; font-weight: bold; border-color: var(--accent-amber);" onclick="scrubTimelineCommit(1)">🔄 Reset Simulation to T=1</button>
+                <button class="sim-btn" onclick="triggerSimulation('rainfall')">Intensify Rainfall Scenario</button>
+                <button class="sim-btn" onclick="triggerSimulation('hospital_close')">Simulate Hospital Overload</button>
+                <button class="sim-btn" onclick="triggerSimulation('rescue_reduce')">Simulate Fleet Reduction</button>
+                
+                <div class="side-panel-title" style="margin-top: 24px;">Layer Controls</div>
+                <button class="layer-btn active" id="toggle-zones" onclick="toggleLayer('zones')">⚠️ Disaster Zones</button>
+                <button class="layer-btn active" id="toggle-blockages" onclick="toggleLayer('blockages')">❌ Road Blockages</button>
+                <button class="layer-btn active" id="toggle-hospitals" onclick="toggleLayer('hospitals')">🏥 Hospitals</button>
+                <button class="layer-btn active" id="toggle-safe_zones" onclick="toggleLayer('safe_zones')">🛡️ Safe Zones</button>
+                <button class="layer-btn active" id="toggle-storage" onclick="toggleLayer('storage')">📦 Storage Areas</button>
+                <button class="layer-btn active" id="toggle-teams" onclick="toggleLayer('teams')">🚒 Rescue Teams</button>
+                <button class="layer-btn active" id="toggle-telecom" onclick="toggleLayer('telecom')">📡 Telecom Clusters</button>
+                <button class="layer-btn active" id="toggle-sos" onclick="toggleLayer('sos')">🚨 SOS Signals</button>
+                <button class="sim-btn" style="margin-top: 12px; text-align: center; border-color: rgba(255,255,255,0.15);" onclick="toggleLayer('all')">Reset Overlays</button>
+            </div>
+        </div>
+
+        <!-- Tab 4: Audit Log -->
+        <div class="tab-content" id="tab-audit">
+            <div class="scrollable-panel-body">
+                <div class="side-panel-title">Decision Audit Log</div>
+                <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">This log registers official admin actions, dispatches, and decisions made. Saved in browser storage for accountability reviews.</p>
+                <button class="sim-btn" style="background: var(--accent-red); color: #fff; border-color: var(--accent-red); text-align: center;" onclick="clearAuditLog()">Clear Decision Log</button>
+                <div id="auditLogContent" style="display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 10.5px;">
+                    <div style="color: var(--text-secondary)">No decisions logged yet in this session.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating entity click detail panel -->
+    <div id="infoPanel" class="floating-panel hide">
+        <div class="panel-header" id="panelTitle">Entity</div>
+        <div class="panel-body" id="panelContent">Details go here</div>
+        <button class="close-btn" onclick="closePanel()">✕</button>
+    </div>
+
+    <!-- Operations Log Terminal -->
+    <div class="ops-log-panel" id="opsLogPanel">
+        <div class="ops-log-header">📟 Operations Log Feed</div>
+        <div class="ops-log-body" id="opsLogBody">
+            <div style="color: var(--text-secondary)">[SYSTEM] Initializing telemetry grid...</div>
+        </div>
+        <div class="ops-log-input-wrapper">
+            <span class="ops-log-prompt">></span>
+            <input type="text" id="opsLogInput" placeholder="Broadcast to field units..." onkeypress="handleCommsInput(event)" />
+        </div>
+    </div>
+
+    <!-- Map Legend -->
+    <div class="map-legend" id="mapLegend">
+        <div class="legend-header" onclick="var c=document.getElementById('legendContent'),i=document.getElementById('legendToggleIcon');if(c.style.display==='none'){c.style.display='flex';i.innerText='▼';}else{c.style.display='none';i.innerText='▶';}" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; gap: 12px;">
+            <div class="legend-title">Legend</div>
+            <div id="legendToggleIcon" style="font-size: 10px; color: var(--text-secondary);">▶</div>
+        </div>
+        <div id="legendContent" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px;">
+            <div class="legend-item"><div class="legend-color" style="background:#ef4444; border-radius:50%; box-shadow:0 0 6px #ef4444;"></div> Disaster Epicenter</div>
+            <div class="legend-item"><div style="font-size:12px; margin-right:8px;">❌</div> Road Blockage</div>
+            <div class="legend-item"><div style="font-size:12px; margin-right:8px;">🚨</div> Cellular SOS</div>
+            <div class="legend-item"><div class="legend-color" style="background:#22d3ee; border-radius:50%; box-shadow:0 0 6px #22d3ee;"></div> Satellite SOS</div>
+            <div class="legend-item"><div class="legend-color" style="border:1.5px dashed #f97316; border-radius:50%; background:rgba(249, 115, 22, 0.15);"></div> Blackout Trapped Area</div>
+            <div class="legend-item">
+                <svg viewBox="0 0 24 24" width="14" height="14" style="margin-right:8px;" fill="#e2e8f0" stroke="#0f1115" stroke-width="1.5"><path d="M12 2v20M2 12h20M12 2A10 10 0 0 1 22 12 10 10 0 0 1 12 22 10 10 0 0 1 2 12 10 10 0 0 1 12 2z"/></svg> 
+                Hospital
+            </div>
+            <div class="legend-item">
+                <svg viewBox="0 0 24 24" width="14" height="14" style="margin-right:8px;" fill="#10b981" stroke="#0f1115" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Safe Zone
+            </div>
+            <div class="legend-item">
+                <svg viewBox="0 0 24 24" width="14" height="14" style="margin-right:8px;" fill="#3b82f6" stroke="#0f1115" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Telecom
+            </div>
+            <div class="legend-item">
+                <svg viewBox="0 0 24 24" width="14" height="14" style="margin-right:8px;" fill="#f59e0b" stroke="#0f1115" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.54.51l.77-.74zM12.83 8.3L3.77 17.36a6 6 0 1 0 8.48 8.48l9.06-9.06m-8.48-8.48l8.48 8.48"/></svg>
+                Rescue Team
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Timeline Scrubber -->
+    <div class="timeline-bar-container">
+        <div class="timeline-controls">
+            <button class="timeline-play-btn" id="timelinePlayBtn" onclick="toggleTimelinePlay()">⏸</button>
+            <span class="timeline-tick-label">TICK: <span id="currentTick">1</span>/39</span>
+        </div>
+        <div class="timeline-scrubber-wrapper">
+            <div class="timeline-phases" id="timelinePhases"></div>
+            <input type="range" id="timelineScrubber" min="1" max="39" value="1" oninput="scrubTimeline(this.value)" onchange="scrubTimelineCommit(this.value)" />
+            <div class="timeline-milestones" id="timelineMilestones"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="/app.js"></script>
+</body>
+
+</html>
